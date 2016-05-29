@@ -5,10 +5,10 @@
 #include <vector>
 #include "helper.cpp"
 
-#define BACKLOG 10
+#define BACKLOG 50
+#define BUFFER_SIZE 1024
 
 int main(int argc, char const *argv[]) {
-  
   if (argc != 2) {
       fprintf(stderr, "Needs to specifiy port number\n");
       exit(1);
@@ -52,6 +52,7 @@ int main(int argc, char const *argv[]) {
       exit(1);
   }
 
+  std::string incomplete_message = "";
   while(1) {
     socklen_t size = sizeof(struct sockaddr_in);
     if ((client_fd = accept(socket_fd, (struct sockaddr *)&client_info, &size))==-1 ) {
@@ -61,9 +62,10 @@ int main(int argc, char const *argv[]) {
     std::cout << "Got connection from client" << inet_ntoa(client_info.sin_addr) << std::endl;
 
     int status;
-    char buffer[1024];
+    char buffer[BUFFER_SIZE];
     while(1) {
-      if ((status = recv(client_fd, buffer, 1024, 0)) == -1) {
+      memset(buffer, 0 , sizeof(buffer));
+      if ((status = recv(client_fd, buffer, BUFFER_SIZE, 0)) == -1) {
         perror("Could not recieve from client");
         exit(1);
       }
@@ -71,14 +73,16 @@ int main(int argc, char const *argv[]) {
         std::cout << "Connection closed from client" << std::endl;
         break;
       }
-      
-      buffer[status] = '\0';
-      std::vector<std::string> messages = parse_messages(buffer);
-      for (std::vector<std::string>::iterator i = messages.begin(); i != messages.end(); ++i) {
-        std::string message = *i;
+
+      // Read each message and bounce it back to client
+      std::string combined_buffer = incomplete_message + buffer;
+      std::vector<std::string> messages = parse_messages(combined_buffer);
+      for (int i = 0; i < messages.size()-1; ++i) {
+        std::string message = messages[i];
         std::cout << "Received: " << message << std::endl;
         send_message(message, client_fd);
       }
+      incomplete_message = messages.back();
     }
 
     close(client_fd);

@@ -9,7 +9,9 @@
 
 int socket_fd;
 int received_messages_count;
-int sent_messages_count;
+
+#define BUFFER_SIZE 1024
+#define MESSAGES_COUNT 4000
 
 struct Message {
   std::string message;
@@ -32,8 +34,9 @@ Message* find_correct_message(std::string message_string) {
 
 void read_responses_thread() {
   int status;
-  char buffer[1024];
-  
+  char buffer[BUFFER_SIZE];
+  std::string incomplete_message = ""; // used to keep incomplete messages between two buffers
+
   while(1) {
     memset(buffer, 0 , sizeof(buffer));
     status = recv(socket_fd, buffer, sizeof(buffer),0);
@@ -41,20 +44,28 @@ void read_responses_thread() {
       printf("Either Connection Closed or Error\n");
       exit(0);
     }
-
     buffer[status] = '\0';
 
-    std::vector<std::string> messages = parse_messages(buffer);
-    for (std::vector<std::string>::iterator i = messages.begin(); i != messages.end(); ++i) {
-      Message* message = find_correct_message(*i);
-      gettimeofday(&message->time_received, NULL);
-      message->time_taken = (message->time_sent.tv_sec - message->time_received.tv_sec) * 1000000 + (message->time_received.tv_usec - message->time_sent.tv_usec);
-      std::cout << "Received: " << message->message << " time taken " << message->time_taken << std::endl;
+    // Read each message and calculate the round trip time
+    std::string combined_buffer = incomplete_message + buffer;
+    std::vector<std::string> messages = parse_messages(combined_buffer);
+    for (int i = 0; i < messages.size()-1; ++i) {
+      Message* message = find_correct_message(messages[i]);
 
-      received_messages_count++;
+      if (message == NULL) {
+        std::cout << "Received message does not exist: " << messages[i] << std::endl;
+        exit(0);
+      } else {
+        gettimeofday(&message->time_received, NULL);
+        message->time_taken = (message->time_received.tv_sec - message->time_sent.tv_sec) * 1000000 + (message->time_received.tv_usec - message->time_sent.tv_usec);
+        std::cout << "Received " << message->message << " - with round trip time: " << message->time_taken << " microseconds" << std::endl;
+        received_messages_count++;
+      }
+
+      incomplete_message = messages.back();
     }
 
-    if (received_messages_count == sent_messages_count) {
+    if (received_messages_count >= MESSAGES_COUNT) {
       return;
     }
   }
@@ -87,11 +98,9 @@ int main(int argc, char const *argv[]) {
 
   // Reading responses in thread
   std::thread responses_t (read_responses_thread);
-  std::cout << "Now reading reponses in thread...\n";
 
-  // Sending 20 messages
-  sent_messages_count = 20;
-  for (int i = 0; i < sent_messages_count; ++i) {
+  // Sending messages
+  for (int i = 0; i < MESSAGES_COUNT; ++i) {
     Message *message = new Message();
     message->message = "message " + std::to_string(i);
     gettimeofday(&message->time_sent, NULL);
@@ -101,6 +110,21 @@ int main(int argc, char const *argv[]) {
 
   // Waiting for all messages to get back
   responses_t.join();
+
+  // Calculate the average round trip time
+  double total_time = 0;
+  for (std::vector<Message*>::iterator i = sent_messages.begin(); i != sent_messages.end(); ++i) {
+    Message *message = *i;
+    total_time += message->time_taken;
+  }
+  std::cout << "Average round trip time: " << total_time / MESSAGES_COUNT << " microseconds" << std::endl;
+
+  // Calculate throughput rate
+  Message *first_message = sent_messages.front();
+  Message *last_message = sent_messages.back();
+  float running_time = (last_message->time_received.tv_sec - first_message->time_sent.tv_sec) * 1000000 + (last_message->time_received.tv_usec - first_message->time_sent.tv_usec);
+  float throughput_rate = (MESSAGES_COUNT / running_time) * 1000000;
+  std::cout << "Running throughput rate: " << throughput_rate << " messages per second" << std::endl;
   
   return 0;
 }

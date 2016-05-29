@@ -1,8 +1,8 @@
 
-std::vector<std::string> parse_messages(char* buffer) {
+std::vector<std::string> parse_messages(std::string buffer) {
   std::vector<std::string> messages;
   std::string message = "";
-  for (int i = 0; i < strlen(buffer); ++i) {  
+  for (int i = 0; i < buffer.length(); ++i) {  
     if (buffer[i] == '#') { // Message delimiter
       messages.push_back(message);
       message = "";
@@ -10,6 +10,8 @@ std::vector<std::string> parse_messages(char* buffer) {
       message += buffer[i];
     }
   }
+  
+  messages.push_back(message);
   
   return messages;
 }

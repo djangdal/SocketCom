@@ -11,8 +11,8 @@ client: client.cpp
 
 clean:
 	@echo "\nCleaning..."; 
-	$(RM) -r $(client.out)/* $(TARGET)
-	$(RM) -r $(DEPDIR)/*.d
+	rm server.out
+	rm client.out
 
 run_client:
 	./client.out 4200
