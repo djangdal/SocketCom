@@ -3,8 +3,24 @@
 #include <unistd.h>
 #include <arpa/inet.h>
 #include <thread>
+#include <vector>
 
 int socket_fd;
+
+std::vector<std::string> parse_messages(char* buffer) {
+  std::vector<std::string> messages;
+  std::string message = "";
+  for (int i = 0; i < strlen(buffer); ++i) {  
+    if (buffer[i] == '#') { // Message delimiter
+      messages.push_back(message);
+      message = "";
+    } else {
+      message += buffer[i];
+    }
+  }
+  
+  return messages;
+}
 
 void read_responses_thread() {
   int status;
@@ -18,12 +34,22 @@ void read_responses_thread() {
       exit(0);
     }
 
-    printf("Received: %s\n",buffer);
+    buffer[status] = '\0';
+
+    std::vector<std::string> messages = parse_messages(buffer);
+    for (std::vector<std::string>::iterator i = messages.begin(); i != messages.end(); ++i) {
+      std::string message = *i;
+      std::cout << "Received: " << message << std::endl;
+    }
   }
 }
 
-void send_message(const char message[]) {
-  if ((send(socket_fd, message, strlen(message), 0)) == -1) {
+void send_message(std::string message) {
+  std::cout << "Sending: " << message << std::endl;
+
+  message += "#"; //Adding delimiter
+  const char *m = message.c_str();
+  if ((send(socket_fd, m, strlen(m), 0)) == -1) {
       fprintf(stderr, "Failure Sending Message");
       close(socket_fd);
       exit(1);
@@ -62,7 +88,7 @@ int main(int argc, char const *argv[]) {
   // Sending 20 messages
   for (int i = 0; i < 20; ++i) {
     std::string m = "message " + std::to_string(i);
-    send_message(m.c_str());
+    send_message(m);
   }
 
   // Waiting for all messages to get back
