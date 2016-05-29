@@ -2,9 +2,26 @@
 #include <string>
 #include <unistd.h>
 #include <arpa/inet.h>
+#include <thread>
 
 int socket_fd;
+
+void read_responses_thread() {
+  int status;
+  char buffer[1024];
   
+  while(1) {
+    memset(buffer, 0 , sizeof(buffer));
+    status = recv(socket_fd, buffer, sizeof(buffer),0);
+    if (status <= 0) {
+      printf("Either Connection Closed or Error\n");
+      exit(0);
+    }
+
+    printf("Received: %s\n",buffer);
+  }
+}
+
 void send_message(const char message[]) {
   if ((send(socket_fd, message, strlen(message), 0)) == -1) {
       fprintf(stderr, "Failure Sending Message");
@@ -38,20 +55,18 @@ int main(int argc, char const *argv[]) {
       exit(1);
   }
 
-  // Sending a message to the server
-  send_message("Hello world!");
+  // Reading responses in thread
+  std::thread responses_t (read_responses_thread);
+  std::cout << "Now reading reponses in thread...\n";
 
-  // Reading response from server
-  char buffer[1024];
-  memset(buffer, 0 , sizeof(buffer));
-
-  int status = recv(socket_fd, buffer, sizeof(buffer),0);
-  if (status <= 0) {
-    perror("Could not read response from server\n");
-    exit(0);
+  // Sending 20 messages
+  for (int i = 0; i < 20; ++i) {
+    std::string m = "message " + std::to_string(i);
+    send_message(m.c_str());
   }
 
-  std::cout << "Received: " << buffer << std::endl;
+  // Waiting for all messages to get back
+  responses_t.join();
   
   return 0;
 }
