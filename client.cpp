@@ -8,6 +8,8 @@
 #include "helper.cpp"
 
 int socket_fd;
+int received_messages_count;
+int sent_messages_count;
 
 struct Message {
   std::string message;
@@ -44,11 +46,16 @@ void read_responses_thread() {
 
     std::vector<std::string> messages = parse_messages(buffer);
     for (std::vector<std::string>::iterator i = messages.begin(); i != messages.end(); ++i) {
-
       Message* message = find_correct_message(*i);
       gettimeofday(&message->time_received, NULL);
       message->time_taken = (message->time_sent.tv_sec - message->time_received.tv_sec) * 1000000 + (message->time_received.tv_usec - message->time_sent.tv_usec);
       std::cout << "Received: " << message->message << " time taken " << message->time_taken << std::endl;
+
+      received_messages_count++;
+    }
+
+    if (received_messages_count == sent_messages_count) {
+      return;
     }
   }
 }
@@ -83,7 +90,8 @@ int main(int argc, char const *argv[]) {
   std::cout << "Now reading reponses in thread...\n";
 
   // Sending 20 messages
-  for (int i = 0; i < 20; ++i) {
+  sent_messages_count = 20;
+  for (int i = 0; i < sent_messages_count; ++i) {
     Message *message = new Message();
     message->message = "message " + std::to_string(i);
     gettimeofday(&message->time_sent, NULL);
