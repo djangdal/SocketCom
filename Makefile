@@ -1,5 +1,6 @@
 CC := clang++
 CFLAGS := -Wall -std=gnu++11 -stdlib=libc++ -g -DDEBUG
+PORT := 4200
 
 all: server client
 
@@ -15,7 +16,7 @@ clean:
 	rm client.out
 
 run_client:
-	./client.out 4200
+	./client.out $(PORT)
 
 run_server:
-	./server.out 4200
+	./server.out $(PORT)
