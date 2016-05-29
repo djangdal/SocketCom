@@ -3,23 +3,9 @@
 #include <unistd.h>
 #include <arpa/inet.h>
 #include <vector>
+#include "helper.cpp"
 
 #define BACKLOG 10
-
-std::vector<std::string> parse_messages(char* buffer) {
-  std::vector<std::string> messages;
-  std::string message = "";
-  for (int i = 0; i < strlen(buffer); ++i) {  
-    if (buffer[i] == '#') { // Message delimiter
-      messages.push_back(message);
-      message = "";
-    } else {
-      message += buffer[i];
-    }
-  }
-  
-  return messages;
-}
 
 int main(int argc, char const *argv[]) {
   
@@ -91,13 +77,7 @@ int main(int argc, char const *argv[]) {
       for (std::vector<std::string>::iterator i = messages.begin(); i != messages.end(); ++i) {
         std::string message = *i;
         std::cout << "Received: " << message << std::endl;
-        message += "#"; // Adding delimiter
-        // Send the message back
-        if ((send(client_fd, message.c_str(), message.length(), 0)) == -1) {
-          perror("Could not send message back to client");
-          close(client_fd);
-          break;
-        }
+        send_message(message, client_fd);
       }
     }
 

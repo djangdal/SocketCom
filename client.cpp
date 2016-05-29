@@ -5,6 +5,7 @@
 #include <thread>
 #include <vector>
 #include <sys/time.h>
+#include "helper.cpp"
 
 int socket_fd;
 
@@ -16,21 +17,6 @@ struct Message {
 };
 
 std::vector<Message*> sent_messages;
-
-std::vector<std::string> parse_messages(char* buffer) {
-  std::vector<std::string> messages;
-  std::string message = "";
-  for (int i = 0; i < strlen(buffer); ++i) {  
-    if (buffer[i] == '#') { // Message delimiter
-      messages.push_back(message);
-      message = "";
-    } else {
-      message += buffer[i];
-    }
-  }
-  
-  return messages;
-}
 
 Message* find_correct_message(std::string message_string) {
   for (std::vector<Message*>::iterator i = sent_messages.begin(); i != sent_messages.end(); ++i) {
@@ -64,18 +50,6 @@ void read_responses_thread() {
       message->time_taken = (message->time_sent.tv_sec - message->time_received.tv_sec) * 1000000 + (message->time_received.tv_usec - message->time_sent.tv_usec);
       std::cout << "Received: " << message->message << " time taken " << message->time_taken << std::endl;
     }
-  }
-}
-
-void send_message(Message *message) {
-  std::cout << "Sending: " << message->message <<  std::endl;
-
-  std::string message_delimiter = message->message + "#"; //Adding delimiter
-  const char *m = message_delimiter.c_str();
-  if ((send(socket_fd, m, strlen(m), 0)) == -1) {
-      fprintf(stderr, "Failure Sending Message");
-      close(socket_fd);
-      exit(1);
   }
 }
 
@@ -114,7 +88,7 @@ int main(int argc, char const *argv[]) {
     message->message = "message " + std::to_string(i);
     gettimeofday(&message->time_sent, NULL);
     sent_messages.push_back(message);
-    send_message(message);
+    send_message(message->message, socket_fd);
   }
 
   // Waiting for all messages to get back
